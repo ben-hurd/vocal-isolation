@@ -5,86 +5,86 @@ import math
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
+import musdb
+import skimage.io
 ###
 # Preprocessing
 ###
-def get_data(train_filename, test_filename):
-	"""
-
-	:param :
-	:param :
-	:return:
-	"""
-	### Read in data and convert audio to array
-	train_data, train_sample_rate = librosa.load(train_filename, sr=44100, mono=False, dtype=np.float32, res_type='kaiser_best')
-	test_data, test_sample_rate = librosa.load(test_filename, sr=44100, mono=False, dtype=np.float32, res_type='kaiser_best')
-
-	# ?Convert to mono? - Stereo is ideal and would be much cooler
-	# train_data = librosa.to_mono(train_data)
-	# test_data = librosa.to_mono(test_data)
-
-	# ?Trim silence? - I think it could mess up the alignment of different stems and is unnecessary
-	# y = librosa.effects.trim(y, top_db=60, ref=<function amax>, frame_length=2048, hop_length=512)
-
-	# ?Downsample from 44.1kHz to 22.05 kHz?
-	sample_rate = 44100
-	train_data = librosa.resample(train_data, orig_sr=sample_rate, target_sr=22050, res_type='kaiser_best', fix=True, scale=False)
-	test_data = librosa.resample(train_data, orig_sr=sample_rate, target_sr=22050, res_type='kaiser_best', fix=True, scale=False)
-	make_spectrogram(train_data[0])
-	make_spectrogram(test_data[0])
 
 
-	### Extract the inputs and labels (full mixes & actual vocal stems)
-	# train_mixes = train_data[0]
-	# train_vocals = train_data[4]
-	# test_mixes = test_data[0]
-	# test_vocals = test_data[4]
 
-	return train_data, train_data, test_data, test_data
+# generates all of the spectrograms from the musdb18 dataset
 
-def make_spectrogram(inputs):
-	"""
-	:param :
-	:param :
-	:return:
-	"""
-	n_fft = 1024
+def make_spectrograms():
+
+	mus_train = musdb.DB(root="data/musdb18", subsets="train")
+	
+	# creating the spectogram images from the training data 
+
+	for track in mus_train:
+
+		# converting samples into target rate of 22050
+		track_data = librosa.resample(librosa.to_mono(track.audio.T), orig_sr=track.rate, target_sr=22050, res_type='kaiser_best', fix=True, scale=False)
+		vocal_data = librosa.resample(librosa.to_mono(track.targets['vocals'].audio.T), orig_sr=track.rate, target_sr=22050, res_type='kaiser_best', fix=True, scale=False)
+
+		# length of frame (35000 is about 3 seconds)
+		len_frame = 35000
+		num_frames = int(len(track_data)/len_frame)
+
+		# saving each frame as a spectrogram (and putting mix in mix folders and vocals in vocals folder)
+		for frame in range(num_frames):
+			make_spectrogram(track_data[frame * len_frame :frame * len_frame + len_frame], "mix/" + track.name + "-" + str(frame) + ".png", True)
+			make_spectrogram(vocal_data[frame * len_frame :frame * len_frame + len_frame], "vocals/" + track.name + "-" + str(frame) + ".png", True)
+
+
+	return 
+
+# makes an individual spectrogram and saves it in the correspoonding folder
+
+def make_spectrogram(inputs, filename, train):
+
+	n_fft = 4096
 	hop_length = 256
-	n_mels = 40
+	n_mels = 128
 	f_min = 20
-	f_max = 8000
-	sample_rate = 16000
+	f_max = 16000
+	sample_rate = 22050
+	window_or_frame_length = 1024
 
-	# Tensorflow sftf
-	X = tf.signal.stft(signals=inputs, frame_length=1024, frame_step=256, fft_length=None, window_fn=tf.signal.hann_window, pad_end=False, name=None)
+	# librosa melspectrogram
+	mels = librosa.feature.melspectrogram(inputs, sr=sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
 
-	# Librosa stft
-	X = librosa.stft(inputs, n_fft=n_fft, hop_length=hop_length, win_length=None, window='hann', center=True, dtype=None, pad_mode='reflect')
-	# stft_magnitude, stft_phase = librosa.magphase(stft)
-	# stft_magnitude_db = librosa.amplitude_to_db(stft_magnitude)
-	# mel_spec = librosa.feature.melspectrogram(clip, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels, sr=sample_rate, power=1.0, fmin=20, fmax=16000)
-	# mel_spec_db = librosa.amplitude_to_db(mel_spec, ref=np.max)
 
-	# Librosa mel-stft
-	fig, ax = plt.subplots()
-	S = librosa.feature.melspectrogram(inputs, sr=sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
-	S_db = librosa.power_to_db(S, ref=np.max)
-	img = librosa.display.specshow(S_db, y_axis='mel', x_axis='time', ax=ax)
-	ax.set(title='Mel spectrogram display')
-	fig.colorbar(img, ax=ax, format="%+2.f dB")
-	plt.show()
+	# getting rid of edges of figure 
+	figure = plt.figure(figsize=(500, 600), dpi=1)
+	axis = plt.subplot(1, 1, 1)
+	plt.axis('off')
+	plt.tick_params(axis='both', left='off', top='off', right='off', bottom='off', labelleft='off', labeltop='off',
+                    labelright='off', labelbottom='off')
+
+	S_db = librosa.power_to_db(mels, ref=np.max)
+	librosa.display.specshow(S_db)
+
+	extent = axis.get_window_extent().transformed(figure.dpi_scale_trans.inverted())
+	
+	# saving figure 
+	if train:
+		plt.savefig("data/spectrograms/train/" + filename, bbox_inches=extent, pad_inches=0)
+	else:
+		plt.savefig("data/spectrograms/test/" + filename, bbox_inches=extent, pad_inches=0)
+
+	# close plots for memory purposes
+	plt.clf()
+	plt.close()
+	
 
     
 
 def main():
-    """
 
-    :return: None
-    """
-    train_mixes, train_vocals, test_mixes, test_vocals = get_data('data/skateboard-p-flip.wav','data/skateboard-p-flip-instrumental.wav')
-
-
-    return
+	# generate spectrogram files from dataset (only will do the training files at the moment)
+	make_spectrograms()
+	return
 
 
 if __name__ == '__main__':
