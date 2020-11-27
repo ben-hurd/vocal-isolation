@@ -39,7 +39,7 @@ class Model(tf.keras.Model):
 		"""
 		Runs a forward pass on an input batch of images.
 		:param inputs: spectrograms of full mixes
-		:returns: 
+		:return: 
 		"""
 		conv_1_out = self.conv_1(inputs)
 
