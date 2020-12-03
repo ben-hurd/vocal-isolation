@@ -2,9 +2,11 @@ import os
 import tensorflow as tf
 import numpy as np
 import math
-from convolution import conv2d
+# from convolution import conv2d
 from matplotlib import pyplot as plt
 import librosa
+from preprocess import get_data
+from postprocess import spectrogram_to_audio
 
 
 ###
@@ -15,24 +17,24 @@ class Model(tf.keras.Model):
 		"""
 		Constructor of the convolutional neural network model.
 		"""
-		super(Model, self).__init__()
+		# super(Model, self).__init__()
 
-		self.conv_1 = tf.keras.layers.Conv2D(32, [ , ], padding='same', input_shape=[None, 513, 25, 1], activation='leaky_relu')
+		# self.conv_1 = tf.keras.layers.Conv2D(32, [ , ], padding='same', input_shape=[None, 513, 25, 1], activation='leaky_relu')
 
-		self.conv_2 = tf.keras.layers.Conv2D(16, [ , ], padding='same', input_shape=[None, 513, 25, 32], activation='leaky_relu')
-		# self.conv_2_maxpool = tf.keras.layers.MaxPooling2D(pool_size=[ , ], strides=None, padding="valid", data_format=None)
-		# self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
+		# self.conv_2 = tf.keras.layers.Conv2D(16, [ , ], padding='same', input_shape=[None, 513, 25, 32], activation='leaky_relu')
+		# # self.conv_2_maxpool = tf.keras.layers.MaxPooling2D(pool_size=[ , ], strides=None, padding="valid", data_format=None)
+		# # self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
 
-		self.conv_3 = tf.keras.layers.Conv2D(64, [ , ], padding='same', input_shape=[None, 171, 8, 16], activation='leaky_relu')
+		# self.conv_3 = tf.keras.layers.Conv2D(64, [ , ], padding='same', input_shape=[None, 171, 8, 16], activation='leaky_relu')
 
-		self.conv_4 = tf.keras.layers.Conv2D(16, [ , ], padding='same', input_shape=[None, 171, 8, 64], activation='leaky_relu')
-		# self.conv_2_maxpool = tf.keras.layers.MaxPooling2D(pool_size=[ , ], strides=None, padding="valid", data_format=None)
-		# self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
+		# self.conv_4 = tf.keras.layers.Conv2D(16, [ , ], padding='same', input_shape=[None, 171, 8, 64], activation='leaky_relu')
+		# # self.conv_2_maxpool = tf.keras.layers.MaxPooling2D(pool_size=[ , ], strides=None, padding="valid", data_format=None)
+		# # self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
 
-		self.dense_1 = tf.keras.layers.Dense()
-		# self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
+		# self.dense_1 = tf.keras.layers.Dense()
+		# # self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
 
-		self.dense_2 = tf.keras.layers.Dense()
+		# self.dense_2 = tf.keras.layers.Dense()
 
 
 	def call(self, inputs):
@@ -41,26 +43,27 @@ class Model(tf.keras.Model):
 		:param inputs: spectrograms of full mixes
 		:return: 
 		"""
-		conv_1_out = self.conv_1(inputs)
+		# conv_1_out = self.conv_1(inputs)
 
-		conv_2_out = self.conv_2(conv_1_out)
-		conv_2_out = tf.nn.max_pool(conv_2_out, [ , ], [ , , , ], '')
-		conv_2_out = tf.nn.dropout(conv_2_out, rate=)
+		# conv_2_out = self.conv_2(conv_1_out)
+		# conv_2_out = tf.nn.max_pool(conv_2_out, [ , ], [ , , , ], '')
+		# conv_2_out = tf.nn.dropout(conv_2_out, rate=)
 
-		conv_3_out = self.conv_3(conv_2_out)
+		# conv_3_out = self.conv_3(conv_2_out)
 
-		conv_4_out = self.conv_4(conv_3_out)
-		conv_4_out = tf.nn.max_pool(conv_4_out, [ , ], [ , , , ], '')
-		conv_4_out = tf.nn.dropout(conv_4_out, rate=)
+		# conv_4_out = self.conv_4(conv_3_out)
+		# conv_4_out = tf.nn.max_pool(conv_4_out, [ , ], [ , , , ], '')
+		# conv_4_out = tf.nn.dropout(conv_4_out, rate=)
 
-		conv_4_out_flattened = tf.flatten(conv_4_out)
+		# conv_4_out_flattened = tf.flatten(conv_4_out)
 
-		dense_1_out = self.dense_1(conv_4_out_flattened)
-		dense_1_out = tf.nn.dropout(dense_1_out, rate=)
+		# dense_1_out = self.dense_1(conv_4_out_flattened)
+		# dense_1_out = tf.nn.dropout(dense_1_out, rate=)
 
-		dense_2_out = self.dense_2(dense_1_out)
+		# dense_2_out = self.dense_2(dense_1_out)
 
-		return dense_2_out
+		# return dense_2_out
+		pass
 
 	def loss(self, predictions, actual):
 		"""
@@ -113,21 +116,24 @@ def test(model, test_inputs, test_labels):
 
 	pass
 
-
 def main():
-    """
+	"""
+	:return: None
+	"""
 
-    :return: None
-    """
-    train_mixes, train_vocals, test_mixes, test_vocals = get_data('data/')
+	train_mix, train_vocals = get_data("data/spectrograms/train-1")
+	# test_mix, test_vocals = get_data("data/spectrograms/test")
 
-    model = Model()
+	# example of how to go from spectrogram -> audio
+	spectrogram_to_audio(train_mix[0],"data/train-mix-1.wav")
+	spectrogram_to_audio(train_vocals[0],"data/train-vocals-1.wav")
+
+    # model = Model()
 
     # train(model, train_mixes, train_vocals)
 
     # print(test(model, test_mixes, test_vocals))
-
-    return
+	return
 
 
 if __name__ == '__main__':
