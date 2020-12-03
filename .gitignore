@@ -1,2 +1,4 @@
 data/musdb18
 data/spectrograms
+*.pyc
+*.wav

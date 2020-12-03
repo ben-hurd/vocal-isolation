@@ -121,12 +121,12 @@ def main():
 	:return: None
 	"""
 
-	train_mix, train_vocals = get_data("data/spectrograms/train-1")
-	# test_mix, test_vocals = get_data("data/spectrograms/test")
+	train_mix, train_vocals = get_data("data/spectrograms/train")
+	test_mix, test_vocals = get_data("data/spectrograms/test")
 
 	# example of how to go from spectrogram -> audio
-	spectrogram_to_audio(train_mix[0],"data/train-mix-1.wav")
-	spectrogram_to_audio(train_vocals[0],"data/train-vocals-1.wav")
+	# spectrogram_to_audio(train_mix[0],"data/train-mix-1.wav")
+	# spectrogram_to_audio(train_vocals[0],"data/train-vocals-1.wav")
 
     # model = Model()
 
