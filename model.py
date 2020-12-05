@@ -2,7 +2,6 @@ import os
 import tensorflow as tf
 import numpy as np
 import math
-# from convolution import conv2d
 from matplotlib import pyplot as plt
 import librosa
 from preprocess import get_data
@@ -96,8 +95,8 @@ def train(model, train_inputs, train_labels):
 	:param train_labels: array representations of the ground truth vocal stems for training
 	:return:
 	"""
-	train_mixes = make_spectrogram(train_inputs)
-	train_vocals = make_spectrogram(train_labels)
+	# train_mixes = make_spectrograms(train_inputs)
+	# train_vocals = make_spectrograms(train_labels)
 
 
 	pass
@@ -110,8 +109,8 @@ def test(model, test_inputs, test_labels):
 	:param test_labels: array representations of the ground truth vocal stems for testing
 	:return: total test accuracy
 	"""
-	test_mixes = make_spectrogram(test_inputs)
-	test_vocals = make_spectrogram(test_labels)
+	# test_mixes = make_spectrograms(test_inputs)
+	# test_vocals = make_spectrograms(test_labels)
 
 
 	pass
@@ -125,8 +124,8 @@ def main():
 	test_mix, test_vocals = get_data("data/spectrograms/test")
 
 	# example of how to go from spectrogram -> audio
-	# spectrogram_to_audio(train_mix[0],"data/train-mix-1.wav")
-	# spectrogram_to_audio(train_vocals[0],"data/train-vocals-1.wav")
+	# spectrogram_to_audio(train_mix[5000],"data/train-mix-1.wav")
+	# spectrogram_to_audio(train_vocals[5000],"data/train-vocals-1.wav")
 
     # model = Model()
 
