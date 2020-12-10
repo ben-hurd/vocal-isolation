@@ -141,7 +141,7 @@ def get_data(file_path):
 	mix = slice_spectrogram(mix)
 	vocals = slice_spectrogram(vocals)
 	instrumental = slice_spectrogram(instrumental)
-	
+
 	return mix, vocals, instrumental
 
 def slice_spectrogram(spectrogram):
@@ -162,14 +162,17 @@ def slice_spectrogram(spectrogram):
 			slices.append(s)
 
 	slices = np.transpose(slices, (0,2,1))
-
+	# print(np.shape(slices))
+	slices = np.ndarray.flatten(slices)
 	# remove excess to fit dimensions
 	remainder = len(slices) % 18441
+	# print(remainder)
 	if remainder != 0:
 		slices = slices[:-remainder]
+		# print(slices)
 
 	slices = np.reshape(slices, [-1,length,2049,1])
-
+	# print(slices)
 	return slices
 
 

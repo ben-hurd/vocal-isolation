@@ -1,11 +1,15 @@
 import os
 import tensorflow as tf
+from tensorflow import keras
 import numpy as np
 import math
 from matplotlib import pyplot as plt
 import librosa
 from preprocess import get_data
 from postprocess import spectrogram_to_audio
+import sys
+import musdb
+from preprocess import slice_spectrogram
 
 
 ###
@@ -122,6 +126,7 @@ def train(model, mix, vocal, instrumental):
 
 		# ideal binary mask for vocal-dominated pixels
 		IBM = tf.squeeze(tf.cast(tf.greater(vocal_batch, instrumental_batch), tf.float32))
+		# print("IBM IN TRAIN:", IBM)
 
 		with tf.GradientTape() as tape:
 			pred = model(mix_batch)
@@ -168,6 +173,9 @@ def test(model, mix, vocal, instrumental):
 		IBM = tf.squeeze(tf.cast(tf.greater(vocal_batch, instrumental_batch), tf.float32))
 
 		pred = model(mix_batch)
+		if i == 0:
+			print(pred)
+			print(pred.shape)
 		loss = model.loss(pred, IBM)
 
 		model.loss_list_test.append(loss)
@@ -198,9 +206,83 @@ def main():
 	"""
 	:return: None
 	"""
+	
+	if sys.argv[1] == "-train":
 
-	train_mix, train_vocals, train_instrumental = get_data("data/spectrograms/train")
-	test_mix, test_vocals, test_instrumental = get_data("data/spectrograms/test")
+		train_mix, train_vocals, train_instrumental = get_data("data/spectrograms/train")
+		test_mix, test_vocals, test_instrumental = get_data("data/spectrograms/test")
+		model = Model()
+		for i in range(5):
+
+			train(model, train_mix, train_vocals, train_instrumental)
+			print("End of Epoch:", i+1)
+
+			# test(model, test_mix, test_vocals, test_instrumental)
+
+		print("Train loss per batch:")
+		visualize_loss(model.loss_list_train)
+
+		# print("Test loss per batch")
+		# visualize_loss(model.loss_list_test)
+
+		model.save("trained_model")
+		return
+	
+	elif sys.argv[1] == "-savedWeights":
+		model = keras.models.load_model('trained_model', compile=False)
+		# model.built = True
+		# load_status = model.load_weights("trained")
+		# load_status.assert_consumed()
+		mus_data = musdb.DB(root="data/musdb18", subsets="test")
+		# train_mix, train_vocals, train_instrumental = get_data("data/spectrograms/train")
+
+		original_sr = mus_data[0].rate
+		target_sr = 22050
+		mix_data = librosa.resample(librosa.to_mono(mus_data[0].audio.T), orig_sr=original_sr, target_sr=target_sr, res_type='kaiser_best', fix=True, scale=False)
+		
+		len_frame = target_sr*3
+		num_frames = int(len(mix_data)/len_frame)
+
+		totalMels = []
+
+		for frame in range(num_frames):
+			n_fft = 4096
+			hop_length = 256
+			n_mels = 128
+			sample_rate = 22050
+			w_length = 1024
+
+			# Librosa melspectrogram
+			mels = librosa.feature.melspectrogram(mix_data[frame * len_frame : frame * len_frame + len_frame], sr=sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels, win_length=w_length)
+			totalMels.append(mels)
+		x = len(totalMels)
+		y = len(totalMels[0])
+		z = len(totalMels[0][0])
+
+		Input = slice_spectrogram(totalMels)
+		# print(Input)
+		IBM = model(Input)
+		IBM = tf.squeeze(tf.cast(tf.greater(IBM, 0.3), tf.float32))
+		print(tf.reduce_sum(IBM))
+		vocals = tf.multiply(IBM,tf.cast(tf.squeeze(Input),tf.float32))
+		vocals = tf.squeeze(tf.reshape(vocals,[-1,1]))
+
+		print("VOCAL SHAPE:", vocals.shape)
+		difference = x * y * z - vocals.shape[0]
+		vocals = tf.cast(vocals.numpy(), tf.float32)
+		pad = tf.cast(tf.zeros(difference), tf.float32)
+		print("PAD", pad)
+		print(vocals)
+		vocals = tf.concat([vocals,pad],0)
+		print(vocals.shape)
+		vocals = tf.reshape(vocals, [y,x*z])
+		print("vocals are", vocals)
+		print(vocals.numpy()[:,:259].shape)
+		spectrogram_to_audio(vocals.numpy()[:,:259], "vocals-try-again???")
+		return 
+
+	# train_mix, train_vocals, train_instrumental = get_data("data/spectrograms/train")
+	# test_mix, test_vocals, test_instrumental = get_data("data/spectrograms/test")
 
 	# # TRIAL VALUES:
 	# train_mix = tf.constant(tf.random.truncated_normal([5000,9,2049,1],stddev=0.1), dtype=tf.float32)
@@ -215,20 +297,6 @@ def main():
 	# spectrogram_to_audio(train_mix[5000],"data/train-mix-1.wav")
 	# spectrogram_to_audio(train_vocals[5000],"data/train-vocals-1.wav")
 	# spectrogram_to_audio(train_instrumental[5000],"data/train-instrumental-1.wav")
-
-	model = Model()
-
-	for i in range(5):
-
-		train(model, train_mix, train_vocals, train_instrumental)
-
-		test(model, test_mix, test_vocals, test_instrumental)
-
-	print("Train loss per batch:")
-	visualize_loss(model.loss_list_train)
-
-	print("Test loss per batch")
-	visualize_loss(model.loss_list_test)
 
 	return
 
