@@ -16,24 +16,32 @@ class Model(tf.keras.Model):
 		"""
 		Constructor of the convolutional neural network model.
 		"""
-		# super(Model, self).__init__()
+		super(Model, self).__init__()
 
-		# self.conv_1 = tf.keras.layers.Conv2D(32, [ , ], padding='same', input_shape=[None, 513, 25, 1], activation='leaky_relu')
+		self.batch_size = 100
+		self.optimizer = tf.keras.optimizers.Adam()
+		self.loss_list_train = []
+		self.loss_list_test = []
 
-		# self.conv_2 = tf.keras.layers.Conv2D(16, [ , ], padding='same', input_shape=[None, 513, 25, 32], activation='leaky_relu')
-		# # self.conv_2_maxpool = tf.keras.layers.MaxPooling2D(pool_size=[ , ], strides=None, padding="valid", data_format=None)
-		# # self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
+		# TODO: experiment with replacing "12"s with "3"s and seeing if it helps. Also could try 'same' padding
+		self.conv_1 = tf.keras.layers.Conv2D(32, [3,12], strides=1, padding='valid', activation='relu')
 
-		# self.conv_3 = tf.keras.layers.Conv2D(64, [ , ], padding='same', input_shape=[None, 171, 8, 16], activation='leaky_relu')
+		self.conv_2 = tf.keras.layers.Conv2D(16, [3,12], strides=1, padding='valid', activation='relu')
+		self.conv_2_maxpool = tf.keras.layers.MaxPooling2D(pool_size=[1,12])
 
-		# self.conv_4 = tf.keras.layers.Conv2D(16, [ , ], padding='same', input_shape=[None, 171, 8, 64], activation='leaky_relu')
-		# # self.conv_2_maxpool = tf.keras.layers.MaxPooling2D(pool_size=[ , ], strides=None, padding="valid", data_format=None)
-		# # self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
+		self.conv_3 = tf.keras.layers.Conv2D(64, [3,12], strides=1, padding='valid', activation='relu')
 
-		# self.dense_1 = tf.keras.layers.Dense()
-		# # self.dropout_2 = tf.keras.layers.Dropout(rate=, noise_shape=None, seed=None)
+		self.conv_4 = tf.keras.layers.Conv2D(32, [3,12], strides=1, padding='valid', activation='relu')
+		self.conv_4_maxpool = tf.keras.layers.MaxPooling2D(pool_size=[1,12])
+		self.dropout_1 = tf.keras.layers.Dropout(rate=0.5)
+		self.flatten_1 = tf.keras.layers.Flatten()
 
-		# self.dense_2 = tf.keras.layers.Dense()
+		self.dense_1 = tf.keras.layers.Dense(2048, activation='relu', dtype=tf.float32)
+		self.dropout_2 = tf.keras.layers.Dropout(rate=0.5)
+
+		self.dense_2 = tf.keras.layers.Dense(512, activation='relu', dtype=tf.float32)
+
+		self.dense_3_out = tf.keras.layers.Dense(18441, activation='sigmoid', dtype=tf.float32)
 
 
 	def call(self, inputs):
@@ -42,96 +50,186 @@ class Model(tf.keras.Model):
 		:param inputs: spectrograms of full mixes
 		:return: 
 		"""
-		# conv_1_out = self.conv_1(inputs)
+		conv_1_out = self.conv_1(inputs)
 
-		# conv_2_out = self.conv_2(conv_1_out)
-		# conv_2_out = tf.nn.max_pool(conv_2_out, [ , ], [ , , , ], '')
-		# conv_2_out = tf.nn.dropout(conv_2_out, rate=)
+		conv_2_out = self.conv_2(conv_1_out)
+		conv_2_out = self.conv_2_maxpool(conv_2_out)
 
-		# conv_3_out = self.conv_3(conv_2_out)
+		conv_3_out = self.conv_3(conv_2_out)
 
-		# conv_4_out = self.conv_4(conv_3_out)
-		# conv_4_out = tf.nn.max_pool(conv_4_out, [ , ], [ , , , ], '')
-		# conv_4_out = tf.nn.dropout(conv_4_out, rate=)
+		conv_4_out = self.conv_4(conv_3_out)
+		conv_4_out = self.conv_4_maxpool(conv_4_out)
+		conv_4_out = self.dropout_1(conv_4_out)
 
-		# conv_4_out_flattened = tf.flatten(conv_4_out)
+		conv_4_out = self.flatten_1(conv_4_out)
 
-		# dense_1_out = self.dense_1(conv_4_out_flattened)
-		# dense_1_out = tf.nn.dropout(dense_1_out, rate=)
+		dense_1_out = self.dense_1(conv_4_out)
+		dense_1_out = self.dropout_2(dense_1_out)
 
-		# dense_2_out = self.dense_2(dense_1_out)
+		dense_2_out = self.dense_2(dense_1_out)
 
-		# return dense_2_out
-		pass
+
+		dense_3_out = self.dense_3_out(dense_2_out)
+		dense_3_out = tf.reshape(dense_3_out, [-1,9,2049])
+
+		return dense_3_out
 
 	def loss(self, predictions, actual):
 		"""
-
+		Calculates the loss over a given batch
 		:param predictions: 
 		:param actual:
 		:return: the total loss over the batch
 		"""
 
-		pass
+		loss = -tf.math.log(predictions)*actual - tf.math.log(1-predictions)*(1-actual)
+		loss = tf.reduce_mean(loss)
 
-	def accuracy(self, predictions, actual):
-		"""
-
-		:param predictions:
-		:param actual:
-		:return: the total accuracy over the batch
-		"""
-
-		pass
+		return loss
 
 
 ###
 # Training & Testing
 ###
-def train(model, train_inputs, train_labels):
+def train(model, mix, vocal, instrumental):
 	"""
-
+	Trains the model to learn a binary mask for vocal isolation
 	:param train_inputs: array representations of the ground truth full mixes for training
 	:param train_labels: array representations of the ground truth vocal stems for training
 	:return:
 	"""
-	# train_mixes = make_spectrograms(train_inputs)
-	# train_vocals = make_spectrograms(train_labels)
+
+	num_examples = len(mix)
+
+	# shuffle inputs
+	rand_ind = tf.random.shuffle(range(num_examples))
+	mix = tf.gather(mix, rand_ind)
+	vocal = tf.gather(vocal, rand_ind)
+	instrumental = tf.gather(instrumental, rand_ind)
+
+	# remove excess to be divisible by batch size
+	batch_remainder = num_examples % model.batch_size
+	if batch_remainder != 0:
+		mix = mix[:-batch_remainder]
+		vocal = vocal[:-batch_remainder]
+		instrumental = instrumental[:-batch_remainder]
+
+	# batch processing
+	for i in range(0, num_examples, model.batch_size):
+		mix_batch = mix[i : i + model.batch_size]
+		vocal_batch = vocal[i : i + model.batch_size]
+		instrumental_batch = instrumental[i : i + model.batch_size]
+
+		# ideal binary mask for vocal-dominated pixels
+		IBM = tf.squeeze(tf.cast(tf.greater(vocal_batch, instrumental_batch), tf.float32))
+
+		with tf.GradientTape() as tape:
+			pred = model(mix_batch)
+			loss = model.loss(pred, IBM)
+
+			model.loss_list_train.append(loss)
+
+		gradients = tape.gradient(loss, model.trainable_variables)
+		model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+	return
 
 
-	pass
-
-
-def test(model, test_inputs, test_labels):
+def test(model, mix, vocal, instrumental):
 	"""
-
+	Tests the model on vocal isolation
 	:param test_inputs: array representations of the ground truth full mixes for testing
 	:param test_labels: array representations of the ground truth vocal stems for testing
-	:return: total test accuracy
+	:return: None
 	"""
-	# test_mixes = make_spectrograms(test_inputs)
-	# test_vocals = make_spectrograms(test_labels)
+	
+	num_examples = len(mix)
+
+	# # shuffle inputs
+	# rand_ind = tf.random.shuffle(range(num_examples))
+	# mix = tf.gather(mix, rand_ind)
+	# vocal = tf.gather(vocal, rand_ind)
+	# instrumental = tf.gather(instrumental, rand_ind)
+
+	# remove excess to be divisible by batch size
+	batch_remainder = num_examples % model.batch_size
+	if batch_remainder != 0:
+		mix = mix[:-batch_remainder]
+		vocal = vocal[:-batch_remainder]
+		instrumental = instrumental[:-batch_remainder]
+
+	# batch processing
+	for i in range(0, num_examples, model.batch_size):
+		mix_batch = mix[i : i + model.batch_size]
+		vocal_batch = vocal[i : i + model.batch_size]
+		instrumental_batch = instrumental[i : i + model.batch_size]
+
+		# ideal binary mask for vocal-dominated pixels
+		IBM = tf.squeeze(tf.cast(tf.greater(vocal_batch, instrumental_batch), tf.float32))
+
+		pred = model(mix_batch)
+		loss = model.loss(pred, IBM)
+
+		model.loss_list_test.append(loss)
+
+	return
 
 
-	pass
+# (copied from hw2)
+def visualize_loss(losses): 
+    """
+    Uses Matplotlib to visualize the losses of our model.
+    :param losses: list of loss data stored from train. Can use the model's loss_list 
+    field 
+
+    NOTE: DO NOT EDIT
+
+    :return: doesn't return anything, a plot should pop-up 
+    """
+    x = [i for i in range(len(losses))]
+    plt.plot(x, losses)
+    plt.title('Loss per batch')
+    plt.xlabel('Batch')
+    plt.ylabel('Loss')
+    plt.show()
+
 
 def main():
 	"""
 	:return: None
 	"""
 
-	train_mix, train_vocals = get_data("data/spectrograms/train")
-	test_mix, test_vocals = get_data("data/spectrograms/test")
+	train_mix, train_vocals, train_instrumental = get_data("data/spectrograms/train")
+	test_mix, test_vocals, test_instrumental = get_data("data/spectrograms/test")
 
-	# example of how to go from spectrogram -> audio
+	# # TRIAL VALUES:
+	# train_mix = tf.constant(tf.random.truncated_normal([5000,9,2049,1],stddev=0.1), dtype=tf.float32)
+	# train_vocals = tf.constant(tf.random.truncated_normal([5000,9,2049,1],stddev=0.1))
+	# train_instrumental = tf.constant(tf.random.truncated_normal([5000,9,2049,1],stddev=0.1),dtype=tf.float32)
+
+	# test_mix = tf.constant(tf.random.truncated_normal([5000,9,2049,1],stddev=0.1), dtype=tf.float32)
+	# test_vocals = tf.constant(tf.random.truncated_normal([5000,9,2049,1],stddev=0.1))
+	# test_instrumental = tf.constant(tf.random.truncated_normal([5000,9,2049,1],stddev=0.1),dtype=tf.float32)
+
+	# # example of how to go from spectrogram -> audio
 	# spectrogram_to_audio(train_mix[5000],"data/train-mix-1.wav")
 	# spectrogram_to_audio(train_vocals[5000],"data/train-vocals-1.wav")
+	# spectrogram_to_audio(train_instrumental[5000],"data/train-instrumental-1.wav")
 
-    # model = Model()
+	model = Model()
 
-    # train(model, train_mixes, train_vocals)
+	for i in range(5):
 
-    # print(test(model, test_mixes, test_vocals))
+		train(model, train_mix, train_vocals, train_instrumental)
+
+		test(model, test_mix, test_vocals, test_instrumental)
+
+	print("Train loss per batch:")
+	visualize_loss(model.loss_list_train)
+
+	print("Test loss per batch")
+	visualize_loss(model.loss_list_test)
+
 	return
 
 

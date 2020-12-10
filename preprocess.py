@@ -28,6 +28,7 @@ def make_spectrograms(data, test):
 	dictionary = {}
 	dictionary["mix"] = []
 	dictionary["vocals"] = []
+	dictionary["instrumental"] = []
 
 	# Creating the spectogram arrays from the training data
 	num_tracks = len(mus_data)
@@ -44,6 +45,7 @@ def make_spectrograms(data, test):
 		target_sr = 22050
 		mix_data = librosa.resample(librosa.to_mono(track.audio.T), orig_sr=original_sr, target_sr=target_sr, res_type='kaiser_best', fix=True, scale=False)
 		vocal_data = librosa.resample(librosa.to_mono(track.targets['vocals'].audio.T), orig_sr=original_sr, target_sr=target_sr, res_type='kaiser_best', fix=True, scale=False)
+		instrumental_data = librosa.resample(librosa.to_mono(track.targets['accompaniment'].audio.T), orig_sr=original_sr, target_sr=target_sr, res_type='kaiser_best', fix=True, scale=False)
 
 		# Length of frame; 66150 should be 3 seconds (appears as 6 seconds on graph)
 		len_frame = target_sr*3
@@ -53,6 +55,7 @@ def make_spectrograms(data, test):
 		for frame in range(num_frames):
 			dictionary["mix"].append(generate_spectrogram_array(mix_data[frame * len_frame : frame * len_frame + len_frame]))
 			dictionary["vocals"].append(generate_spectrogram_array(vocal_data[frame * len_frame : frame * len_frame + len_frame]))
+			dictionary["instrumental"].append(generate_spectrogram_array(instrumental_data[frame * len_frame : frame * len_frame + len_frame]))
 			if test:
 				pickle.dump(dictionary, open( "data/spectrograms/" + data + "-1", "wb" ))
 				return
@@ -72,13 +75,18 @@ def generate_spectrogram_array(inputs):
 	hop_length = 256
 	n_mels = 128
 	f_min = 20
-	f_max = 11637
-	# f_max = 14000
+	# f_max = 11637
+	f_max = 11025
 	sample_rate = 22050
 	w_length = 1024
 
 	# Librosa melspectrogram
 	mels = librosa.feature.melspectrogram(inputs, sr=sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels, win_length=w_length)
+
+	# TODO: experiment with if one of these improves model
+	# mels = librosa.power_to_db(mels, ref=np.max)
+	# mels = librosa.power_to_db(np.abs(mels)**2, ref=np.max)
+	# mels = librosa.power_to_db(np.abs(mels), ref=np.max)
 
 	return mels
 
@@ -91,8 +99,8 @@ def make_spectrogram_image(inputs, filename):
 	"""
 
 	f_min = 20
-	f_max = 11637
-	# f_max = 14000
+	# f_max = 11637
+	f_max = 11025
 
 	mels = generate_spectrogram_array(inputs)
 
@@ -127,8 +135,42 @@ def get_data(file_path):
 	unpickled_file = unpickle(file_path)
 	mix = unpickled_file['mix']
 	vocals = unpickled_file['vocals']
+	instrumental = unpickled_file['instrumental']
+
+	# slice spectrograms into (,9,2049,1) inputs for model
+	mix = slice_spectrogram(mix)
+	vocals = slice_spectrogram(vocals)
+	instrumental = slice_spectrogram(instrumental)
 	
-	return mix, vocals
+	return mix, vocals, instrumental
+
+def slice_spectrogram(spectrogram):
+	"""
+	"""
+
+	# from paper - number of continuos frames per vocal harmonic is 9
+	length = 9
+	hop_length = 256
+
+	slices = []
+	for n in range(len(spectrogram)):
+		# get array for individual excerpt
+		spec = spectrogram[n]
+
+		for x in range(0, hop_length//length):
+			s = spec[:, x * length : (x+1) * length]
+			slices.append(s)
+
+	slices = np.transpose(slices, (0,2,1))
+
+	# remove excess to fit dimensions
+	remainder = len(slices) % 18441
+	if remainder != 0:
+		slices = slices[:-remainder]
+
+	slices = np.reshape(slices, [-1,length,2049,1])
+
+	return slices
 
 
 def main():
