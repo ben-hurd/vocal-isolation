@@ -2,3 +2,7 @@ data/musdb18
 data/spectrograms
 *.pyc
 *.wav
+trained_model
+checkpoint
+trained.data-00000-of-00001
+trained.index
