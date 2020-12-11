@@ -53,11 +53,14 @@ def make_spectrograms(data, test):
 
 		# Saving each frame as a spectrogram array (and putting track in mix folders and vocals in vocals folder)
 		for frame in range(num_frames):
+			
 			dictionary["mix"].append(generate_spectrogram_array(mix_data[frame * len_frame : frame * len_frame + len_frame]))
 			dictionary["vocals"].append(generate_spectrogram_array(vocal_data[frame * len_frame : frame * len_frame + len_frame]))
 			dictionary["instrumental"].append(generate_spectrogram_array(instrumental_data[frame * len_frame : frame * len_frame + len_frame]))
+
 			if test:
 				pickle.dump(dictionary, open( "data/spectrograms/" + data + "-1", "wb" ))
+				make_spectrogram_image(mix_data[frame * len_frame : frame * len_frame + len_frame],"test-image")
 				return
 
 	# pickle dictionary here
@@ -82,11 +85,6 @@ def generate_spectrogram_array(inputs):
 
 	# Librosa melspectrogram
 	mels = librosa.feature.melspectrogram(inputs, sr=sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels, win_length=w_length)
-
-	# TODO: experiment with if one of these improves model
-	# mels = librosa.power_to_db(mels, ref=np.max)
-	# mels = librosa.power_to_db(np.abs(mels)**2, ref=np.max)
-	# mels = librosa.power_to_db(np.abs(mels), ref=np.max)
 
 	return mels
 
@@ -117,7 +115,7 @@ def make_spectrogram_image(inputs, filename):
 	extent = axis.get_window_extent().transformed(figure.dpi_scale_trans.inverted())
 
 	# Saving figure	
-	plt.savefig("data/spectrograms/images/" + filename, bbox_inches=extent, pad_inches=0)
+	plt.savefig("data/spectrograms/" + filename, bbox_inches=extent, pad_inches=0)
 
 	# Close plots for memory purposes
 	plt.clf()
@@ -144,6 +142,7 @@ def get_data(file_path):
 
 	return mix, vocals, instrumental
 
+# reshape spectrograms so they can be fed into model
 def slice_spectrogram(spectrogram):
 	"""
 	"""
@@ -162,17 +161,17 @@ def slice_spectrogram(spectrogram):
 			slices.append(s)
 
 	slices = np.transpose(slices, (0,2,1))
-	# print(np.shape(slices))
+
 	slices = np.ndarray.flatten(slices)
 	# remove excess to fit dimensions
 	remainder = len(slices) % 18441
-	# print(remainder)
+
 	if remainder != 0:
 		slices = slices[:-remainder]
-		# print(slices)
+
 
 	slices = np.reshape(slices, [-1,length,2049,1])
-	# print(slices)
+
 	return slices
 
 
@@ -181,7 +180,7 @@ def main():
 	# download data from Google Drive
 	if sys.argv[1] == "-gdrive":
 		print("Using Google Drive to Download Data")
-		gdown.download('https://drive.google.com/uc?id=10YE9fmvwVE21Sel8ng7biTC_0ye82R5T&export=download', 'spectrograms.zip', quiet=False)
+		gdown.download('https://drive.google.com/uc?id=1pM6D-ctumopTfiujIue2bRih4jbTaTpw&export=download', 'spectrograms.zip', quiet=False)
 		with zipfile.ZipFile("spectrograms.zip", 'r') as zip_ref:
 			zip_ref.extractall("data")
 		os.remove("spectrograms.zip")
@@ -207,7 +206,8 @@ def main():
 
 	# for testing purposes if we want to make changes to preprocess - only generates 2 new files (1 mix and 1 vocal)
 	elif sys.argv[1] == "-1":
-		make_spectrograms("train", True)
+		make_spectrograms("test", True)
+
 		return
 
 	else:
