@@ -6,12 +6,14 @@ import wavio
 ###
 # Postprocessing
 ###
+
+# given a valid melspectrogram, will create a wav file with the according filename 
 def spectrogram_to_audio(melspectrogram, filename):
 	"""
 
-	:param spectrogram:
-	:param :
-	:return:
+	:param: melspectrogram
+	:param: filena e
+	:return: None (but will write audio to given filename if melspectrogram is valid)
 	"""
 
 	n_fft = 4096
@@ -24,7 +26,6 @@ def spectrogram_to_audio(melspectrogram, filename):
 	wavio.write(filename, audio, sample_rate, sampwidth=3)
 
 def main():
-
 	return
 
 
